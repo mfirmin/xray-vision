@@ -2,3 +2,5 @@
 
 Implementation of "xray vision" in openGL using the stencil buffer
 
+
+![xray](./xray.gif)
