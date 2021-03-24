@@ -223,20 +223,6 @@ void Material::setEmissiveStrength(float strength) {
     glUseProgram(0);
 }
 
-void Material::toggleEmissive(bool value) {
-    glUseProgram(program);
-    auto emissiveEnabledLocation = glGetUniformLocation(program, "emissiveEnabled");
-    glUniform1f(emissiveEnabledLocation, value ? 1.0f : 0.0f);
-    glUseProgram(0);
-}
-
-void Material::toggleBlinnPhongShading(bool value) {
-    glUseProgram(program);
-    auto blinnEnabledLocation = glGetUniformLocation(program, "blinnEnabled");
-    glUniform1f(blinnEnabledLocation, value ? 1.0f : 0.0f);
-    glUseProgram(0);
-}
-
 void Material::setShininess(float shininess) {
     glUseProgram(program);
     auto shininessLocation = glGetUniformLocation(program, "shininess");

@@ -6,6 +6,7 @@
 #include "material/material.hpp"
 #include "model.hpp"
 #include "renderTarget.hpp"
+#include "renderEffects/auraCompositing.hpp"
 
 #include <GL/glew.h>
 
@@ -33,6 +34,11 @@ Renderer::Renderer(int width, int height, std::unique_ptr<Camera>&& camera) :
 
     initializeScreenObject();
 
+    auraTarget = std::make_unique<RenderTarget>(width, height, true);
+    sceneTarget = std::make_unique<RenderTarget>(width, height, false);
+    auraEffect = std::make_unique<AuraCompositingEffect>(width, height);
+    auraEffect->initialize();
+
     std::cout << "Ready\n";
 }
 
@@ -47,6 +53,8 @@ bool Renderer::initializeSDL() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cout << "SDL could not be initialized\n";
     } else {
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
         window = SDL_CreateWindow("Model Viewer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
         if (window == nullptr) {
             std::cout << "Window could not be created!\n";
@@ -87,6 +95,7 @@ bool Renderer::initializeGL() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
     // Enable writing to depth buffer
     glDepthMask(GL_TRUE);
 
@@ -96,6 +105,10 @@ bool Renderer::initializeGL() {
     // glEnable(GL_MULTISAMPLE);
     // Enable face culling
     glEnable(GL_CULL_FACE);
+
+    int bits;
+    SDL_GL_GetAttribute(SDL_GL_STENCIL_SIZE, &bits);
+    std::cout << "Stencil Size: " << bits << "\n";
 
     return true;
 }
@@ -154,13 +167,7 @@ void Renderer::updateCameraRotation(glm::vec3 r) {
 }
 
 void Renderer::render() {
-    glViewport(0, 0, width, height);
-
-    // Bind the scene buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // --- UPDATE UNIFORMS ---
 
     if (camera->isDirty()) {
         for (auto& model : models) {
@@ -171,37 +178,89 @@ void Renderer::render() {
     // TODO(mfirmin): Check if lights are dirty
     for (auto& model : models) {
         model->setLights(lights);
+        model->applyModelMatrix();
     }
 
-    for (auto& model : models) {
-        model->applyModelMatrix();
-        model->draw(MaterialType::standard);
+    // --- RENDER STENCIL/AURA ---
+    {
+        // Bind the aura/stencil buffer
+        glBindFramebuffer(GL_FRAMEBUFFER, auraTarget->getFramebuffer());
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // render 1 to each fragment
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        // Clear the stencil buffer
+
+        // always draw fragments regardless of stencil value
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+        glDepthMask(GL_TRUE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        glDisable(GL_STENCIL_TEST);
+        glStencilMask(0x00);
+        // record depth into framebuffer
+        // glDepthMask(GL_FALSE);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        // draw all aura materials into DEPTH BUFFER ONLY
+        for (auto& model : models) {
+            model->draw(MaterialType::aura);
+        }
+
+
+        // then draw the stencil only where it passes the depth test
+        glEnable(GL_STENCIL_TEST);
+        glStencilMask(0xFF);
+
+        for (auto& model : models) {
+            model->draw(MaterialType::stencil);
+        }
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // then render the aura's color only where the stencil is valid
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        // only render the aura where the stencil is
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        // do not write to stencil
+        glStencilMask(0x00);
+
+        for (auto& model : models) {
+            model->draw(MaterialType::aura);
+        }
+
+        glDisable(GL_STENCIL_TEST);
+    }
+
+    // --- RENDER SCENE ---
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget->getFramebuffer());
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glDepthMask(GL_TRUE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        for (auto& model : models) {
+            model->draw(MaterialType::standard);
+        }
+    }
+
+    // --- Composite and render to screen ---
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glDepthMask(GL_TRUE);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        auraEffect->render(sceneTarget->getColorTexture(), auraTarget->getColorTexture());
     }
 
     glUseProgram(0);
-
-    // // Bind the screen framebuffer
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    // glClearColor(0.0, 0.0, 0.0, 1.0);
-    // // Clear it
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // // render the screen object to it (using the scene render target)
-    // glBindVertexArray(screenObject.vertexArray);
-    // glUseProgram(compositingPass.program);
-
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, sceneTarget->getTexture());
-
-    // glActiveTexture(GL_TEXTURE1);
-    // glBindTexture(GL_TEXTURE_2D, bloomEffect.getBlurTexture());
-
-    // glUniform1i(glGetUniformLocation(compositingPass.program, "scene"), 0);
-    // glUniform1i(glGetUniformLocation(compositingPass.program, "bloomBlur"), 1);
-
-    // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    // glUseProgram(0);
 
     // Swap
     SDL_GL_SwapWindow(window);

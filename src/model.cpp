@@ -57,30 +57,6 @@ void Model::setColor(glm::vec3 color) {
     }
 }
 
-void Model::setMetalness(float metalness) {
-    for (auto& m : materials) {
-        m.second->setMetalness(metalness);
-    }
-}
-
-void Model::setRoughness(float roughness) {
-    for (auto& m : materials) {
-        m.second->setRoughness(roughness);
-    }
-}
-
-void Model::toggleEmissive(bool value) {
-    for (auto& m : materials) {
-        m.second->toggleEmissive(value);
-    }
-}
-
-void Model::toggleBlinnPhongShading(bool value) {
-    for (auto& m : materials) {
-        m.second->toggleBlinnPhongShading(value);
-    }
-}
-
 void Model::setEmissiveColor(glm::vec3 color) {
     for (auto& m : materials) {
         m.second->setEmissiveColor(color);

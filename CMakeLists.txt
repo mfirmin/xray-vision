@@ -44,12 +44,15 @@ set(SOURCES
     src/light/directionalLight.cpp
     src/light/pointLight.cpp
     src/light/spotLight.cpp
+    src/material/auraMaterial.cpp
     src/material/deferredMaterial.cpp
+    src/material/stencilMaterial.cpp
     src/material/material.cpp
     src/mesh.cpp
     src/model.cpp
     src/renderer.cpp
     src/renderTarget.cpp
+    src/renderEffects/auraCompositing.cpp
 )
 
 # Add the executable

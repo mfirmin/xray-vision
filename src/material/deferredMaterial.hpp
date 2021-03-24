@@ -24,6 +24,5 @@ class DeferredMaterial : public Material {
         void setShininess(float shininess) override { (void)shininess; }
 
         void setLights(const std::vector<std::shared_ptr<Light>>& lights) override { (void)lights; }
-        void toggleBlinnPhongShading(bool value) override { (void)value; }
     private:
 };

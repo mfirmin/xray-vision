@@ -1,62 +1,54 @@
 #include "renderTarget.hpp"
 
+#include <assert.h>
+#include <array>
 #include <iostream>
 
-RenderTarget::RenderTarget(int w, int h) :
+RenderTarget::RenderTarget(int w, int h, bool withStencil) :
     width(w), height(h)
 {
-    // initialize the framebuffer for the render target
-    glGenFramebuffers(1, &msFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, msFBO);
+    const unsigned int numTextures = 1;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-    // Initialize the color buffer for the multisample fbo
-    glGenRenderbuffers(1, &colorBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, colorBuffer);
-    // use a floating point renderbuffer for the color
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 8, GL_RGBA16F, width, height);
-    // attach the color buffer to the frame buffer
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer);
+    std::array<GLuint*, numTextures> textures = {
+        &colorTexture,
+    };
 
-    // initialize the depth buffer for the multisample fbo
-    glGenRenderbuffers(1, &depthBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 8, GL_DEPTH_COMPONENT, width, height);
-    // attach the depth buffer to the frame buffer
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+    std::array<GLint, numTextures> internalformats = { GL_RGBA };
+    std::array<GLint, numTextures> formats = { GL_RGBA, };
+    std::array<GLenum, numTextures> types = { GL_UNSIGNED_BYTE };
+    std::array<GLenum, numTextures> attachments = { GL_COLOR_ATTACHMENT0 };
 
-    GLenum drawbuffers[1] = { GL_COLOR_ATTACHMENT0 };
+    for (unsigned int i = 0; i < numTextures; i++) {
+        GLuint* texture = textures.at(i);
+        glGenTextures(1, texture);
 
-    glDrawBuffers(1, static_cast<GLenum*>(drawbuffers));
+        glBindTexture(GL_TEXTURE_2D, *texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalformats.at(i), width, height, 0, formats.at(i), types.at(i), nullptr);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "Error creating RenderTarget: Error creating multisample framebuffer\n";
-        return;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, attachments.at(i), GL_TEXTURE_2D, *texture, 0);
     }
 
+    GLuint depthFormat = withStencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT;
+    GLuint depthAttachment = withStencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT;
 
-    // INITIALIZE THE OUTPUT buffer (the non-multisampled one)
-    // initialize the framebuffer for the render target
-    glGenFramebuffers(1, &outFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, outFBO);
+    glGenRenderbuffers(1, &depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, depthFormat, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, depthAttachment, GL_RENDERBUFFER, depthBuffer);
 
-    // initialize the texture to bind to the buffer
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    // floating point texture
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-    // attach the texture to the framebuffer
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-    glDrawBuffers(1, static_cast<GLenum*>(drawbuffers));
+    glDrawBuffers(numTextures, attachments.data());
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "Error creating RenderTarget: Error creating output framebuffer\n";
-        return;
+        std::cout << "Error creating DeferredPBREffect: Error creating framebuffer\n";
+        assert(false);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

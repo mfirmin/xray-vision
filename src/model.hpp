@@ -11,7 +11,9 @@ class Material;
 class Mesh;
 
 enum class MaterialType {
+    aura,
     standard,
+    stencil,
     deferred,
     deferred_pbr
 };
@@ -39,13 +41,9 @@ class Model {
 
         void setColor(glm::vec3 color);
         void setEmissiveColorAndStrength(glm::vec3 color, float strength);
-        void setMetalness(float metalness);
-        void setRoughness(float roughness);
 
         void setEmissiveColor(glm::vec3 color);
         void setEmissiveStrength(float strength);
-        void toggleEmissive(bool value);
-        void toggleBlinnPhongShading(bool value);
 
         void setLights(const std::vector<std::shared_ptr<Light>>& lights);
         void setProjectionAndViewMatrices(const glm::mat4& projectionMatrix, const glm::mat4& viewMatrix);

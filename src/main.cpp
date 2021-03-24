@@ -3,6 +3,8 @@
 #include "light/directionalLight.hpp"
 #include "light/pointLight.hpp"
 #include "material/material.hpp"
+#include "material/auraMaterial.hpp"
+#include "material/stencilMaterial.hpp"
 // #include "material/deferredMaterial.hpp"
 #include "mesh.hpp"
 #include "model.hpp"
@@ -71,10 +73,27 @@ int main(int argc, char* argv[]) {
         64.0f
     );
 
+    std::unique_ptr<Material> sphereMaterial = std::make_unique<Material>(
+        glm::vec3(0.33f, 0.33f, 0.33f),
+        0.1f,
+        32.0f
+    );
+
     std::shared_ptr<Model> bunny = std::make_shared<Model>(bunnyMesh, std::move(material));
     bunny->setPosition(glm::vec3(0.3f, -1.65f, 0.0f));
 
+
+    std::shared_ptr<Model> sphere = std::make_shared<Model>(sphereMesh, std::move(sphereMaterial));
+    sphere->setPosition(glm::vec3(0.0f, 0.0f, 3.0f));
+
+    std::unique_ptr<Material> stencilMaterial = std::make_unique<StencilMaterial>();
+    sphere->addMaterial(MaterialType::stencil, std::move(stencilMaterial));
+
+    std::unique_ptr<Material> auraMaterial = std::make_unique<AuraMaterial>();
+    bunny->addMaterial(MaterialType::aura, std::move(auraMaterial));
+
     renderer.addModel(bunny);
+    renderer.addModel(sphere);
 
     auto last = std::chrono::steady_clock::now();
 

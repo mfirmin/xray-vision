@@ -6,6 +6,7 @@
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
+#include <memory>
 
 class Camera;
 class Light;
@@ -13,6 +14,7 @@ class Model;
 class HDRI;
 
 class RenderTarget;
+class AuraCompositingEffect;
 
 class Renderer {
     public:
@@ -44,6 +46,11 @@ class Renderer {
         std::vector<std::shared_ptr<Model>> models;
 
         std::vector<std::shared_ptr<Light>> lights;
+
+        std::unique_ptr<RenderTarget> auraTarget;
+        std::unique_ptr<RenderTarget> sceneTarget;
+
+        std::unique_ptr<AuraCompositingEffect> auraEffect;
 
         struct {
             GLuint vertexArray = 0;

@@ -33,13 +33,7 @@ class Material {
         virtual void setEmissiveColor(glm::vec3 color);
         virtual void setEmissiveStrength(float strength);
 
-        virtual void toggleEmissive(bool value);
-        virtual void toggleBlinnPhongShading(bool value);
-
         virtual void setModelMatrix(const glm::mat4& modelMatrix);
-
-        virtual void setMetalness(float metalness) { (void)metalness; }
-        virtual void setRoughness(float roughness) { (void)roughness; }
 
         virtual void setProjectionAndViewMatrices(
             const glm::mat4& projectionMatrix,
